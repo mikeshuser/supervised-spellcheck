@@ -6,13 +6,13 @@ Spell-check program built on top of barrust's pyspellchecker package:
 
 Designed for survey responses in particular, where spelling errors are common
 and can interfere with downstream applications like topic modelling, vector 
-space embedding and visualisations 
+space embedding and visualizations 
 """
 
 from spellchecker import SpellChecker
 import pandas as pd
 
-def manual_check(text_ser: pd.Series, 
+def supervised_check(text_ser: pd.Series, 
         lang='en', 
         speller=None, 
         perma_fix=None,
@@ -77,6 +77,7 @@ def manual_check(text_ser: pd.Series,
     new_additions = [] #all words I want to add to dictionary
     del_ndx = [] #responses to delete afterwards
     
+    #main spellcheck loop
     for i, txt in enumerate(unchecked):
         if i < start_ndx:
             checked[i] = txt
@@ -87,9 +88,10 @@ def manual_check(text_ser: pd.Series,
         if len(misspelled) == 0:
             checked[i] = txt
         else:
+            #prompt for user input if mispelling found
             print()
-            print("Index: " + str(i))
-            print("Response: " + txt)
+            print(f"Index: {str(i)} {25 * '-'}")
+            print(f"Response: {txt}")
             flag_skip = False
             for word in misspelled:
                 if flag_skip:
@@ -101,17 +103,18 @@ def manual_check(text_ser: pd.Series,
                 else:
                     flag_main = True
                     while flag_main:
-                        correct = spell.correction(word)
-                        arg = input("{0} {1} > ".format(word, correct))
+                        correction = spell.correction(word)
+                        arg = input(f"Enter command: {word} -> {correction} > ")
+                        
                         if arg == 'y':
                             #replace only this correction
-                            txt_list = replace_word(txt_list, word, correct)
+                            txt_list = replace_word(txt_list, word, correction)
                             flag_main = False
                             
                         elif arg == 'ya':
                             #replace all such words with correction
-                            txt_list = replace_word(txt_list, word, correct)                    
-                            perma_fix[word] = correct
+                            txt_list = replace_word(txt_list, word, correction)                    
+                            perma_fix[word] = correction
                             flag_main = False
                         
                         elif arg == 'n':
@@ -131,7 +134,7 @@ def manual_check(text_ser: pd.Series,
                                 custom = input("Enter spelling: ").split()
                                 if len(custom) != 2:
                                     print('You must enter 2 arguments. ' +
-                                          'Please refer to manualCheck__doc__')
+                                          'Please refer to documentation')
                                 else:
                                     if custom[1] == 'y':
                                         txt_list = replace_word(txt_list, 
@@ -163,14 +166,15 @@ def manual_check(text_ser: pd.Series,
                                     spell, new_additions, perma_fix)
                             
                         else:
-                            print('Unknown argument provided')
+                            print('Unknown input provided')
 
             checked[i] = ' '.join(txt_list)
+
     return (checked[~checked.index.isin(del_ndx)], 
             spell, new_additions, perma_fix)
 
 def get_ndx(src_list, word):
-    #return all indexes where a value is present
+    #return all indexes where a word is present
     return [i for i, j in enumerate(src_list) if j == word]
 
 def replace_ndx(src_list, ix_list, new_word):
@@ -203,36 +207,4 @@ def split_words(text):
 
 if __name__ == '__main__':
     pass
-
-    '''DEBUGGING
-    import pickle
-    import os
-
-    os.chdir("C:\\spellchecker")
-    df = pd.read_pickle("data_sources\\corpus_unlemmatized.pkl")
-    text = df.map(lambda x: ' '.join(x))
-    clean, spell, new, fixed = manualCheck(df, 
-                                           speller=spell,
-                                           perma_fix=perma_fix)
     
-    res = res[res.notnull()]
-    res.index = pd.RangeIndex(len(res))
-
-    res = replace_from_dict(clean, perma_fix)       
-    res = split_words(res2)
-    
-    cleaned = res.map(lambda x: ' '.join([word.lemma_ for word in nlp(x)])) 
-    cleaned.to_pickle("data_sources\\ecom_corpus_lemmatized.pkl")
-    
-    res.to_pickle("data_sources\\ecom_corpus_noLemmas.pkl")
-    res = pd.read_pickle("data_sources\\ecom_partial_check_nofrench.pkl")
-    ix = pd.read_excel("data_sources\\french_ix.xlsx")
-    res = res[~res.index.isin(ix.iloc[:,0].tolist())]
-
-    with open('data_sources\\ecom_spell.pkl', 'wb') as handle:
-        pickle.dump(spell, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open('data_sources\\perma_fix.pkl', 'wb') as handle:
-        pickle.dump(fixed, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    with open('data_sources\\new_words.pkl', 'wb') as handle:
-        pickle.dump(new, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    '''
